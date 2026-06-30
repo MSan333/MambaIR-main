@@ -7,6 +7,9 @@ parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 # Add the parent directory to sys.path
 sys.path.append(parent_dir)
 
+# Set SwanLab API Key
+os.environ.setdefault('SWANLAB_API_KEY', 'o4MGQAOSX8rGztH69Jj5P')
+
 import logging
 import math
 import time
@@ -18,7 +21,7 @@ from basicsr.data.data_sampler import EnlargedSampler
 from basicsr.data.prefetch_dataloader import CPUPrefetcher, CUDAPrefetcher
 from basicsr.models import build_model
 from basicsr.utils import (AvgTimer, MessageLogger, check_resume, get_env_info, get_root_logger, get_time_str,
-                           init_tb_logger, init_wandb_logger, make_exp_dirs, mkdir_and_rename, scandir)
+                           init_swanlab_logger, init_tb_logger, init_wandb_logger, make_exp_dirs, mkdir_and_rename, scandir)
 from basicsr.utils.options import copy_opt_file, dict2str, parse_options
 
 
@@ -28,6 +31,9 @@ def init_tb_loggers(opt):
                                                      is not None) and ('debug' not in opt['name']):
         assert opt['logger'].get('use_tb_logger') is True, ('should turn on tensorboard when using wandb')
         init_wandb_logger(opt)
+    # initialize SwanLab logger
+    if opt['logger'].get('swanlab') is not None and 'debug' not in opt['name']:
+        init_swanlab_logger(opt)
     tb_logger = None
     if opt['logger'].get('use_tb_logger') and 'debug' not in opt['name']:
         tb_logger = init_tb_logger(log_dir=osp.join(opt['root_path'], 'tb_logger', opt['name']))
@@ -218,6 +224,13 @@ def train_pipeline(root_path):
             model.validation(val_loader, current_iter, tb_logger, opt['val']['save_img'])
     if tb_logger:
         tb_logger.close()
+    # Close SwanLab logger
+    try:
+        import swanlab
+        if swanlab.get_run() is not None:
+            swanlab.finish()
+    except Exception:
+        pass
 
 
 if __name__ == '__main__':

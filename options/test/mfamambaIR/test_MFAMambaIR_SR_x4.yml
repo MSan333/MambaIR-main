@@ -1,0 +1,91 @@
+name: test_MFAMambaIR_SR_x4
+model_type: MambaIRv2Model
+scale: 4
+num_gpu: 1
+manual_seed: 10
+
+datasets:
+  test_1:
+    name: Set5
+    type: PairedImageDataset
+    dataroot_gt: datasets/Set5/HR
+    dataroot_lq: datasets/Set5/LR_bicubic/X4
+    filename_tmpl: '{}x4'
+    io_backend:
+      type: disk
+
+  test_2:
+    name: Set14
+    type: PairedImageDataset
+    dataroot_gt: datasets/Set14/HR
+    dataroot_lq: datasets/Set14/LR_bicubic/X4
+    filename_tmpl: '{}x4'
+    io_backend:
+      type: disk
+
+  test_3:
+    name: BSD100
+    type: PairedImageDataset
+    dataroot_gt: datasets/BSD100/HR
+    dataroot_lq: datasets/BSD100/LR_bicubic/X4
+    filename_tmpl: '{}x4'
+    io_backend:
+      type: disk
+
+  test_4:
+    name: Urban100
+    type: PairedImageDataset
+    dataroot_gt: datasets/Urban100/HR
+    dataroot_lq: datasets/Urban100/LR_bicubic/X4
+    filename_tmpl: '{}x4'
+    io_backend:
+      type: disk
+
+  test_5:
+    name: Manga109
+    type: PairedImageDataset
+    dataroot_gt: datasets/Manga109/HR
+    dataroot_lq: datasets/Manga109/LR_bicubic/X4
+    filename_tmpl: '{}x4'
+    io_backend:
+      type: disk
+
+network_g:
+  type: MFAMambaIR
+  upscale: 4
+  in_chans: 3
+  img_size: 64
+  img_range: 1.
+  embed_dim: 174
+  d_state: 16
+  depths: [6, 6, 6, 6, 6, 6]
+  num_heads: [6, 6, 6, 6, 6, 6]
+  window_size: 16
+  inner_rank: 64
+  num_tokens: 128
+  convffn_kernel_size: 5
+  mlp_ratio: 2.
+  upsampler: 'pixelshuffle'
+  resi_connection: '1conv'
+  use_freq: true
+  num_freq_scales: 3
+  cfsg_kernels: [7, 9, 11]
+  freq_deploy_ratio: 0.75
+
+path:
+  pretrain_network_g: experiments/pretrained_models/mfamambaIR_sr_x4.pth
+  strict_load_g: true
+
+val:
+  save_img: true
+  suffix: ~
+
+  metrics:
+    psnr:
+      type: calculate_psnr
+      crop_border: 4
+      test_y_channel: true
+    ssim:
+      type: calculate_ssim
+      crop_border: 4
+      test_y_channel: true

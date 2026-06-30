@@ -112,6 +112,19 @@ class MessageLogger():
                     self.tb_logger.add_scalar(f'losses/{k}', v, current_iter)
                 else:
                     self.tb_logger.add_scalar(k, v, current_iter)
+        # SwanLab logging
+        try:
+            import swanlab
+            if swanlab.get_run() is not None:
+                swanlab_log = {}
+                for k, v in log_vars.items():
+                    if isinstance(v, (int, float)):
+                        swanlab_log[k] = v
+                if swanlab_log:
+                    swanlab.log(swanlab_log, step=current_iter)
+        except Exception:
+            pass
+
         self.logger.info(message)
 
 
@@ -141,6 +154,31 @@ def init_wandb_logger(opt):
     wandb.init(id=wandb_id, resume=resume, name=opt['name'], config=opt, project=project, sync_tensorboard=True)
 
     logger.info(f'Use wandb logger with id={wandb_id}; project={project}.')
+
+
+@master_only
+def init_swanlab_logger(opt):
+    """Initialize SwanLab logger for online experiment tracking.
+
+    Args:
+        opt (dict): Configuration dictionary containing logger settings.
+    """
+    logger = get_root_logger()
+    try:
+        import swanlab
+        swanlab_config = opt['logger'].get('swanlab', {})
+        swanlab.init(
+            project=swanlab_config.get('project', 'MambaIR'),
+            experiment_name=opt.get('name', 'experiment'),
+            description=swanlab_config.get('description', ''),
+            config=opt,
+            mode=swanlab_config.get('mode', 'cloud'),
+        )
+        logger.info(f"SwanLab logger initialized. Project: {swanlab_config.get('project', 'MambaIR')}")
+    except ImportError:
+        logger.warning('swanlab is not installed. Run: pip install swanlab')
+    except Exception as e:
+        logger.warning(f'SwanLab initialization failed: {e}')
 
 
 def get_root_logger(logger_name='basicsr', log_level=logging.INFO, log_file=None):
