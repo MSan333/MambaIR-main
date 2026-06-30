@@ -112,16 +112,16 @@ class MessageLogger():
                     self.tb_logger.add_scalar(f'losses/{k}', v, current_iter)
                 else:
                     self.tb_logger.add_scalar(k, v, current_iter)
-        # SwanLab logging
+        # SwanLab logging (以epoch为横坐标)
         try:
             import swanlab
             if swanlab.get_run() is not None:
-                swanlab_log = {}
+                swanlab_log = {'iter': current_iter}
                 for k, v in log_vars.items():
                     if isinstance(v, (int, float)):
                         swanlab_log[k] = v
                 if swanlab_log:
-                    swanlab.log(swanlab_log, step=current_iter)
+                    swanlab.log(swanlab_log, step=epoch)
         except Exception:
             pass
 
