@@ -84,6 +84,7 @@ class MessageLogger():
         # epoch, iter, learning rates
         epoch = log_vars.pop('epoch')
         current_iter = log_vars.pop('iter')
+        self.current_epoch = epoch
         lrs = log_vars.pop('lrs')
 
         message = (f'[{self.exp_name[:5]}..][epoch:{epoch:3d}, iter:{current_iter:8,d}, lr:(')
@@ -121,7 +122,7 @@ class MessageLogger():
                     if isinstance(v, (int, float)):
                         swanlab_log[k] = v
                 if swanlab_log:
-                    swanlab.log(swanlab_log, step=current_iter)
+                    swanlab.log(swanlab_log, step=self.current_epoch)
         except Exception:
             pass
 
