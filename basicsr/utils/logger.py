@@ -121,7 +121,7 @@ class MessageLogger():
                 for k, v in log_vars.items():
                     if isinstance(v, (int, float)):
                         swanlab_log[k] = v
-                # 每5000 iter记录一次累计训练时间（秒）和loss均值
+                # 每5000 iter记录一次累计训练时间（秒）、loss和lr
                 if current_iter % 5000 == 0:
                     elapsed_sec = time.time() - self.start_time
                     swanlab_log['train/elapsed_sec'] = round(elapsed_sec, 1)
@@ -129,6 +129,9 @@ class MessageLogger():
                     for k, v in log_vars.items():
                         if isinstance(v, (int, float)) and k.startswith('l_'):
                             swanlab_log[f'train_5k/{k}'] = v
+                    # 记录当前 lr
+                    if lrs:
+                        swanlab_log['train_5k/lr'] = lrs[0]
                 if swanlab_log:
                     swanlab.log(swanlab_log, step=current_iter)
         except Exception:
