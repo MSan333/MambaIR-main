@@ -1,0 +1,106 @@
+# MFAMambaIR-light: Lightweight Multi-scale Frequency-Aware MambaIR
+# 目标：超越 MambaIRv2-light x4 在 Set14 上的 28.84 dB
+name: MFAMambaIR_lightSR_x4
+model_type: MambaIRv2LightModel
+scale: 4
+num_gpu: 1
+manual_seed: 10
+
+datasets:
+  train:
+    task: SR
+    name: DIV2K
+    type: PairedImageDataset
+    dataroot_gt:
+      - /home/guoshuaile/pyproject/data/DIV2K/DIV2K_train_HR
+    dataroot_lq:
+      - /home/guoshuaile/pyproject/data/DIV2K/DIV2K_train_LR_bicubic/X4
+    filename_tmpl: '{}x4'
+    io_backend:
+      type: disk
+    gt_size: 192
+    use_hflip: true
+    use_rot: true
+    use_shuffle: true
+    num_worker_per_gpu: 8
+    batch_size_per_gpu: 16
+    dataset_enlarge_ratio: 100
+    prefetch_mode: ~
+
+  val:
+    name: Set14
+    type: PairedImageDataset
+    dataroot_gt: /home/guoshuaile/pyproject/data/SR/Set14/HR
+    dataroot_lq: /home/guoshuaile/pyproject/data/SR/Set14/LR_bicubic/X4
+    filename_tmpl: '{}x4'
+    io_backend:
+      type: disk
+
+network_g:
+  type: MFAMambaIR  # 复用 MFAMambaIR 架构，用 light 参数
+  upscale: 4
+  in_chans: 3
+  img_size: 48
+  img_range: 1.
+  embed_dim: 48
+  d_state: 8
+  depths: [5, 5, 5, 5]
+  num_heads: [4, 4, 4, 4]
+  window_size: 16
+  inner_rank: 32
+  num_tokens: 64
+  convffn_kernel_size: 5
+  mlp_ratio: 1.0
+  upsampler: 'pixelshuffledirect'
+  resi_connection: '1conv'
+  # MFA特有参数
+  use_freq: true
+  num_freq_scales: 3
+  cfsg_kernels: [5, 7, 9]
+  freq_deploy_ratio: 0.75
+
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: ~
+
+train:
+  optim_g:
+    type: Adam
+    lr: !!float 2e-4
+    weight_decay: 0
+    betas: [0.9, 0.99]
+  scheduler:
+    type: MultiStepLR
+    milestones: [250000, 400000, 450000, 475000]
+    gamma: 0.5
+  total_iter: 500000
+  warmup_iter: -1
+
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1.0
+    reduction: mean
+
+val:
+  val_freq: !!float 5e3
+  save_img: false
+  metrics:
+    psnr:
+      type: calculate_psnr
+      crop_border: 4
+      test_y_channel: true
+
+logger:
+  print_freq: 200
+  save_checkpoint_freq: !!float 5e3
+  use_tb_logger: true
+  swanlab:
+    project: MFAMambaIR_light
+  wandb:
+    project: ~
+    resume_id: ~
+
+dist_params:
+  backend: nccl
+  port: 29500
