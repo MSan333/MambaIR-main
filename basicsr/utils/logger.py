@@ -121,6 +121,9 @@ class MessageLogger():
                 for k, v in log_vars.items():
                     if isinstance(v, (int, float)):
                         swanlab_log[k] = v
+                # 记录累计训练时间（小时）
+                elapsed_hours = (time.time() - self.start_time) / 3600
+                swanlab_log['train/elapsed_hours'] = round(elapsed_hours, 2)
                 if swanlab_log:
                     swanlab.log(swanlab_log, step=current_iter)
         except Exception:
