@@ -264,6 +264,21 @@ class SRModel(BaseModel):
             for metric, value in self.metric_results.items():
                 tb_logger.add_scalar(f'metrics/{dataset_name}/{metric}', value, current_iter)
 
+        # SwanLab logging for validation metrics
+        try:
+            import swanlab
+            if swanlab.get_run() is not None:
+                swanlab_log = {}
+                for metric, value in self.metric_results.items():
+                    swanlab_log[f'val/{dataset_name}/{metric}'] = value
+                if hasattr(self, 'best_metric_results'):
+                    for metric in self.metric_results.keys():
+                        swanlab_log[f'val/{dataset_name}/best_{metric}'] = self.best_metric_results[dataset_name][metric]['val']
+                if swanlab_log:
+                    swanlab.log(swanlab_log, step=current_iter)
+        except Exception:
+            pass
+
     def get_current_visuals(self):
         out_dict = OrderedDict()
         out_dict['lq'] = self.lq.detach().cpu()
