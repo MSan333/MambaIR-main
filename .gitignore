@@ -54,6 +54,7 @@ ENV/
 # Training Logs & Experiment Results
 # (keep experiments/pretrained_models/README.md)
 # ---------------------------------------------------------------------------
+experiments/
 experiments/*
 !experiments/
 !experiments/pretrained_models/

@@ -1,13 +1,64 @@
+import os
 import torch
 from torch.nn import functional as F
 
 from basicsr.utils.registry import MODEL_REGISTRY
+from basicsr.utils import get_root_logger
 from basicsr.models.sr_model import SRModel
 
 
 @MODEL_REGISTRY.register()
 class MambaIRv2LightModel(SRModel):
-    """MambaIRv2 lightSR model for image restoration."""
+    """MambaIRv2 lightSR model for image restoration.
+
+    只保存 latest 和 best 模型，不保存每次 checkpoint 的 per-iter 副本。
+    """
+
+    def save(self, epoch, current_iter):
+        """Save only latest model and training state (overwrite, no per-iter copies)."""
+        # 始终覆盖保存为 net_g_latest.pth
+        if hasattr(self, 'net_g_ema'):
+            self.save_network([self.net_g, self.net_g_ema], 'net_g', -1,
+                              param_key=['params', 'params_ema'])
+        else:
+            self.save_network(self.net_g, 'net_g', -1)
+        # 保存训练状态为 latest.state（用于 auto-resume，覆盖）
+        if current_iter != -1:
+            state = {'epoch': epoch, 'iter': current_iter,
+                     'optimizers': [], 'schedulers': []}
+            for o in self.optimizers:
+                state['optimizers'].append(o.state_dict())
+            for s in self.schedulers:
+                state['schedulers'].append(s.state_dict())
+            save_path = os.path.join(self.opt['path']['training_states'],
+                                     'latest.state')
+            torch.save(state, save_path)
+
+    def _update_best_metric_result(self, dataset_name, metric, val, current_iter):
+        """Update best metric and save best model when strictly improved."""
+        # 判断是否严格优于当前最佳
+        is_better = False
+        if self.best_metric_results[dataset_name][metric]['better'] == 'higher':
+            if val > self.best_metric_results[dataset_name][metric]['val']:
+                is_better = True
+        else:
+            if val < self.best_metric_results[dataset_name][metric]['val']:
+                is_better = True
+
+        # 调用父类更新最佳记录
+        super()._update_best_metric_result(dataset_name, metric, val,
+                                            current_iter)
+
+        # 指标提升时保存 best 模型
+        if is_better:
+            logger = get_root_logger()
+            logger.info(f'New best {metric}: {val:.4f} @ {current_iter} iter. '
+                        f'Saving best model.')
+            if hasattr(self, 'net_g_ema'):
+                self.save_network([self.net_g, self.net_g_ema], 'net_g', 'best',
+                                  param_key=['params', 'params_ema'])
+            else:
+                self.save_network(self.net_g, 'net_g', 'best')
 
     # test by partitioning
     def test(self):

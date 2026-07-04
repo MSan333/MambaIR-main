@@ -86,8 +86,12 @@ def load_resume_state(opt):
         if osp.isdir(state_path):
             states = list(scandir(state_path, suffix='state', recursive=False, full_path=False))
             if len(states) != 0:
-                states = [float(v.split('.state')[0]) for v in states]
-                resume_state_path = osp.join(state_path, f'{max(states):.0f}.state')
+                # 优先使用 latest.state，否则回退到数值最大的 .state 文件
+                if 'latest.state' in states:
+                    resume_state_path = osp.join(state_path, 'latest.state')
+                else:
+                    states = [float(v.split('.state')[0]) for v in states]
+                    resume_state_path = osp.join(state_path, f'{max(states):.0f}.state')
                 opt['path']['resume_state'] = resume_state_path
     else:
         if opt['path'].get('resume_state'):
