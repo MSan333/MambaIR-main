@@ -1,7 +1,6 @@
-# MFAMambaIR_v3: MFA + DSTA 集成训练配置
-# 创新点组合: 频域感知(MFA) + 密度驱动Token聚合(DSTA)
+# MFAMambaIR_v3: MFA + DSTA 集成训练配置 (修复版)
+# 修复: keep_ratio=0.75 (减少信息损失) + weighted_mean (梯度可回传密度评估器)
 # 从零训练, bs=16, total_iter=300k, LR milestones=[150k,200k,250k,275k], gamma=0.5
-# LR变化: 0-150k@2e-4 -> 150k-200k@1e-4 -> 200k-250k@5e-5 -> 250k-275k@2.5e-5 -> 275k-300k@1.25e-5
 name: MFAMambaIR_v3_lightSR_x4
 model_type: MambaIRv2LightModel
 scale: 4
@@ -60,10 +59,11 @@ network_g:
   num_freq_scales: 3
   cfsg_kernels: [5, 7, 9]
   freq_deploy_ratio: 0.75
-  # 创新点3: DSTA 密度驱动Token聚合
+  # 创新点3: DSTA 密度驱动Token聚合 (修复: keep_ratio=0.75 + weighted_mean)
   use_dsta: true
-  dsta_keep_ratio: 0.5
+  dsta_keep_ratio: 0.75
   dsta_group_size: 4
+  dsta_aggregate_method: weighted_mean
 
 path:
   pretrain_network_g: ~
@@ -78,9 +78,9 @@ train:
     betas: [0.9, 0.99]
   scheduler:
     type: MultiStepLR
-    milestones: [150000, 200000, 250000, 275000]
+    milestones: [250000, 350000, 420000, 470000]
     gamma: 0.5
-  total_iter: 300000
+  total_iter: 500000
   warmup_iter: -1
 
   pixel_opt:

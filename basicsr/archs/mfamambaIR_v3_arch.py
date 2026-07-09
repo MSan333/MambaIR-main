@@ -27,7 +27,8 @@ class AttentiveLayerV3(AttentiveLayer):
     def __init__(self, dim, d_state, input_resolution, num_heads, window_size,
                  shift_size, inner_rank, num_tokens, convffn_kernel_size,
                  mlp_ratio, qkv_bias=True, norm_layer=nn.LayerNorm, is_last=False,
-                 use_dsta=True, dsta_keep_ratio=0.5, dsta_group_size=4):
+                 use_dsta=True, dsta_keep_ratio=0.5, dsta_group_size=4,
+                 dsta_aggregate_method='mean'):
         super().__init__(
             dim=dim, d_state=d_state, input_resolution=input_resolution,
             num_heads=num_heads, window_size=window_size, shift_size=shift_size,
@@ -42,6 +43,7 @@ class AttentiveLayerV3(AttentiveLayer):
                 qkv_bias=qkv_bias,
                 keep_ratio=dsta_keep_ratio,
                 group_size=dsta_group_size,
+                aggregate_method=dsta_aggregate_method,
                 use_dsta=True)
 
 
@@ -51,7 +53,8 @@ class BasicBlockV3(nn.Module):
                  window_size, inner_rank, num_tokens, convffn_kernel_size,
                  mlp_ratio=4., qkv_bias=True, norm_layer=nn.LayerNorm,
                  downsample=None, use_checkpoint=False,
-                 use_dsta=True, dsta_keep_ratio=0.5, dsta_group_size=4):
+                 use_dsta=True, dsta_keep_ratio=0.5, dsta_group_size=4,
+                 dsta_aggregate_method='mean'):
         super().__init__()
         self.dim = dim
         self.input_resolution = input_resolution
@@ -69,7 +72,8 @@ class BasicBlockV3(nn.Module):
                     qkv_bias=qkv_bias, norm_layer=norm_layer,
                     is_last=i == depth - 1,
                     use_dsta=use_dsta, dsta_keep_ratio=dsta_keep_ratio,
-                    dsta_group_size=dsta_group_size))
+                    dsta_group_size=dsta_group_size,
+                    dsta_aggregate_method=dsta_aggregate_method))
         if downsample is not None:
             self.downsample = downsample(input_resolution, dim=dim, norm_layer=norm_layer)
         else:
@@ -92,7 +96,8 @@ class MFA_ASSB_V3(nn.Module):
                  downsample=None, use_checkpoint=False, img_size=224,
                  patch_size=4, resi_connection='1conv',
                  use_freq=True, num_freq_scales=3, cfsg_kernels=(7, 9, 11),
-                 use_dsta=True, dsta_keep_ratio=0.5, dsta_group_size=4):
+                 use_dsta=True, dsta_keep_ratio=0.5, dsta_group_size=4,
+                 dsta_aggregate_method='mean'):
         super().__init__()
         self.dim = dim
         self.input_resolution = input_resolution
@@ -111,7 +116,8 @@ class MFA_ASSB_V3(nn.Module):
             qkv_bias=qkv_bias, norm_layer=norm_layer,
             downsample=downsample, use_checkpoint=use_checkpoint,
             use_dsta=use_dsta, dsta_keep_ratio=dsta_keep_ratio,
-            dsta_group_size=dsta_group_size)
+            dsta_group_size=dsta_group_size,
+            dsta_aggregate_method=dsta_aggregate_method)
         if resi_connection == '1conv':
             self.conv = nn.Conv2d(dim, dim, 3, 1, 1)
         elif resi_connection == '3conv':
@@ -155,6 +161,7 @@ class MFAMambaIR_v3(nn.Module):
                  num_freq_scales=3, freq_deploy_ratio=0.75, use_freq=True,
                  cfsg_kernels=(7, 9, 11),
                  use_dsta=True, dsta_keep_ratio=0.5, dsta_group_size=4,
+                 dsta_aggregate_method='mean',
                  **kwargs):
         super().__init__()
         num_in_ch = in_chans
@@ -235,6 +242,7 @@ class MFAMambaIR_v3(nn.Module):
                 use_dsta=use_dsta,
                 dsta_keep_ratio=dsta_keep_ratio,
                 dsta_group_size=dsta_group_size,
+                dsta_aggregate_method=dsta_aggregate_method,
             )
             self.layers.append(layer)
 
