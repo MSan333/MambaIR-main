@@ -1,3 +1,6 @@
+import os
+import glob
+import shutil
 import torch
 from collections import OrderedDict
 from os import path as osp
@@ -251,15 +254,23 @@ class SRModel(BaseModel):
 
     def _log_validation_metric_values(self, current_iter, dataset_name, tb_logger):
         log_str = f'Validation {dataset_name}\n'
+        is_new_best = False
         for metric, value in self.metric_results.items():
             log_str += f'\t # {metric}: {value:.4f}'
             if hasattr(self, 'best_metric_results'):
                 log_str += (f'\tBest: {self.best_metric_results[dataset_name][metric]["val"]:.4f} @ '
                             f'{self.best_metric_results[dataset_name][metric]["iter"]} iter')
+                if self.best_metric_results[dataset_name][metric]['iter'] == current_iter:
+                    is_new_best = True
             log_str += '\n'
 
         logger = get_root_logger()
         logger.info(log_str)
+
+        # Save best checkpoint if new best metric is found
+        if is_new_best:
+            self._save_best_checkpoint(current_iter)
+
         if tb_logger:
             for metric, value in self.metric_results.items():
                 tb_logger.add_scalar(f'metrics/{dataset_name}/{metric}', value, current_iter)
@@ -287,9 +298,40 @@ class SRModel(BaseModel):
             out_dict['gt'] = self.gt.detach().cpu()
         return out_dict
 
+    def _save_best_checkpoint(self, current_iter):
+        """Copy latest checkpoint to best when a new best metric is found."""
+        models_dir = self.opt['path']['models']
+        latest_path = osp.join(models_dir, 'net_g_latest.pth')
+        best_path = osp.join(models_dir, 'net_g_best.pth')
+        if osp.exists(latest_path):
+            shutil.copy2(latest_path, best_path)
+            logger = get_root_logger()
+            logger.info(f'New best model saved to {best_path}')
+
+    def _cleanup_old_checkpoints(self):
+        """Remove old numbered checkpoints, keeping only latest and best."""
+        models_dir = self.opt['path']['models']
+        states_dir = self.opt['path']['training_states']
+        for f in glob.glob(osp.join(models_dir, 'net_g_[0-9]*.pth')):
+            os.remove(f)
+        for f in glob.glob(osp.join(states_dir, '[0-9]*.state')):
+            os.remove(f)
+
     def save(self, epoch, current_iter):
+        """Save networks and training states. Only keep best and latest."""
+        # Save model as net_g_latest.pth (overwrite each time)
         if hasattr(self, 'net_g_ema'):
-            self.save_network([self.net_g, self.net_g_ema], 'net_g', current_iter, param_key=['params', 'params_ema'])
+            self.save_network([self.net_g, self.net_g_ema], 'net_g', -1, param_key=['params', 'params_ema'])
         else:
-            self.save_network(self.net_g, 'net_g', current_iter)
-        self.save_training_state(epoch, current_iter)
+            self.save_network(self.net_g, 'net_g', -1)
+
+        # Save training state as latest.state (for resume capability)
+        if current_iter != -1:
+            self.save_training_state(epoch, current_iter)
+            states_dir = self.opt['path']['training_states']
+            old_state = osp.join(states_dir, f'{current_iter}.state')
+            latest_state = osp.join(states_dir, 'latest.state')
+            if osp.exists(old_state):
+                shutil.move(old_state, latest_state)
+
+        self._cleanup_old_checkpoints()
